@@ -497,8 +497,3 @@ But the biggest lesson from a product management perspective is this: the best t
 Retrieval is the foundation — and that foundation is becoming stronger over time.
 
 ---
-
-## References
-
-- Viblo, *Optimizing RAG: Exploring 5 Effective Chunking Strategies You Should Know*  
-  https://viblo.asia/p/toi-uu-hoa-rag-kham-pha-5-chien-luoc-chunking-hieu-qua-ban-can-biet-EvbLbPGW4nk

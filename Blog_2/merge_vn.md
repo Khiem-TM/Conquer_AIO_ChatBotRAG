@@ -498,7 +498,3 @@ Retrieval là nền tảng — và nền tảng đó đang ngày càng vững ch
 
 ---
 
-## Tài liệu tham khảo
-
-- Viblo, *Tối ưu hóa RAG: Khám phá 5 chiến lược chunking hiệu quả bạn cần biết*  
-  https://viblo.asia/p/toi-uu-hoa-rag-kham-pha-5-chien-luoc-chunking-hieu-qua-ban-can-biet-EvbLbPGW4nk
