@@ -1,50 +1,38 @@
 from __future__ import annotations
 
-import httpx
-
+from app.rag_core.citation.citation_builder import CitationBuilder
+from app.rag_core.context.context_builder import ContextBuilder
+from app.rag_core.llm.ollama_client import OllamaClient
+from app.rag_core.prompt.prompt_builder import PromptBuilder
 from app.shared.configs import settings
-from app.shared.schemas import ChatRequest, ChatResponse, Citation
-from app.shared.utils import get_logger, timer
-
-logger = get_logger(__name__)
+from app.shared.schemas import ChatRequest, ChatResponse
+from app.shared.utils import timer
 
 
 class ChatService:
+    def __init__(
+        self,
+        context_builder: ContextBuilder | None = None,
+        prompt_builder: PromptBuilder | None = None,
+        llm_client: OllamaClient | None = None,
+        citation_builder: CitationBuilder | None = None,
+    ) -> None:
+        self.context_builder = context_builder or ContextBuilder()
+        self.prompt_builder = prompt_builder or PromptBuilder()
+        self.llm_client = llm_client or OllamaClient()
+        self.citation_builder = citation_builder or CitationBuilder()
+
     async def ask(self, payload: ChatRequest) -> ChatResponse:
         with timer() as t:
-            answer = await self._call_ollama(payload.question)
-
-        citations = [
-            Citation(
-                source_id='retrieval_stub_1',
-                source_name='sample_source',
-                chunk_id='chunk_001',
-                score=0.0,
-                snippet='This is a placeholder citation. Replace with real retrieval output.',
-            )
-        ]
+            contexts = await self.context_builder.retrieve(payload.question, payload.top_k)
+            prompt = self.prompt_builder.build(payload.question, contexts)
+            answer = await self.llm_client.generate(prompt)
+            citations = self.citation_builder.build(contexts, payload.include_citations)
 
         return ChatResponse(
             answer=answer,
-            citations=citations if payload.include_citations else [],
+            citations=citations,
             model=settings.ollama_model,
             latency_ms=t.elapsed_ms,
             conversation_id=payload.conversation_id,
         )
-
-    async def _call_ollama(self, question: str) -> str:
-        url = f"{settings.ollama_base_url}/api/generate"
-        req = {
-            'model': settings.ollama_model,
-            'prompt': question,
-            'stream': False,
-        }
-        try:
-            async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
-                response = await client.post(url, json=req)
-                response.raise_for_status()
-                data = response.json()
-            return data.get('response', '').strip() or 'No response from model.'
-        except Exception as exc:
-            logger.exception('Failed to call Ollama: %s', exc)
-            return 'Model service is unavailable. Please try again later.'
