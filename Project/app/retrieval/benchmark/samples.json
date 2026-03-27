@@ -1,0 +1,161 @@
+[
+  {
+    "question": "Bộ tứ Anscombe cho thấy điều gì về việc chỉ dựa vào thống kê mô tả?",
+    "expected_keywords": ["anscombe", "thống kê", "trực quan hóa"],
+    "expected_source_names": ["Part1-4_Minh_VN.md"]
+  },
+  {
+    "question": "Có bao nhiêu tập dữ liệu trong Anscombe's Quartet và được ký hiệu như thế nào?",
+    "expected_keywords": ["I", "II", "III", "IV"],
+    "expected_source_names": ["Part1-4_Minh_VN.md"]
+  },
+  {
+    "question": "Hệ số tương quan Pearson trong ví dụ Anscombe có giá trị bao nhiêu?",
+    "expected_keywords": ["pearson", "0.816"],
+    "expected_source_names": ["Part1-4_Minh_VN.md"]
+  },
+  {
+    "question": "Phương trình hồi quy tuyến tính được nêu trong bảng thống kê là gì?",
+    "expected_keywords": ["y = 3.00 + 0.500x", "hồi quy tuyến tính"],
+    "expected_source_names": ["Part1-4_Minh_VN.md"]
+  },
+  {
+    "question": "Trong mô tả trực quan hóa, bộ dữ liệu II có dạng quan hệ nào?",
+    "expected_keywords": ["phi tuyến", "parabol"],
+    "expected_source_names": ["Part1-4_Minh_VN.md"]
+  },
+  {
+    "question": "Vì sao tài liệu khuyến nghị hạn chế dùng biểu đồ tròn khi có nhiều danh mục?",
+    "expected_keywords": ["pie chart", "3-5", "so sánh độ dài"],
+    "expected_source_names": ["Part1-4_Minh_VN.md"]
+  },
+  {
+    "question": "Data-Ink ratio nhấn mạnh nguyên tắc gì trong thiết kế biểu đồ?",
+    "expected_keywords": ["data-ink", "chartjunk", "tối giản"],
+    "expected_source_names": ["Part1-4_Minh_VN.md"]
+  },
+  {
+    "question": "Trong tài liệu tiếng Việt, Seaborn khác Matplotlib ở điểm cốt lõi nào?",
+    "expected_keywords": ["Seaborn", "Matplotlib", "high-level"],
+    "expected_source_names": ["Part1-4_Minh_VN.md"]
+  },
+
+  {
+    "question": "Why does the document say visualization is essential in modern data analysis?",
+    "expected_keywords": ["transform raw information", "useful knowledge"],
+    "expected_source_names": ["Part1-4_Minh_EN.md"]
+  },
+  {
+    "question": "According to the English section, what does Dataset II reveal about linear modeling?",
+    "expected_keywords": ["non-linear", "parabolic", "linear model"],
+    "expected_source_names": ["Part1-4_Minh_EN.md"]
+  },
+  {
+    "question": "What issue in Dataset III significantly alters the regression slope?",
+    "expected_keywords": ["outlier", "regression line"],
+    "expected_source_names": ["Part1-4_Minh_EN.md"]
+  },
+  {
+    "question": "What is recommended instead of pie charts when categories are many or labels are long?",
+    "expected_keywords": ["horizontal bar chart", "pie chart"],
+    "expected_source_names": ["Part1-4_Minh_EN.md"]
+  },
+  {
+    "question": "What are the three palette families mentioned for data coloring strategy?",
+    "expected_keywords": ["qualitative", "sequential", "diverging"],
+    "expected_source_names": ["Part1-4_Minh_EN.md"]
+  },
+  {
+    "question": "How is data visualization described in the quote from Storytelling With Data?",
+    "expected_keywords": ["intersection of science and art", "eliminating clutter"],
+    "expected_source_names": ["Part1-4_Minh_EN.md"]
+  },
+
+  {
+    "question": "V-Green cam kết chia sẻ doanh thu cố định bao nhiêu cho mỗi kWh?",
+    "expected_keywords": ["750 đồng", "1 kWh"],
+    "expected_source_names": ["test.txt.txt"]
+  },
+  {
+    "question": "Chính sách chia sẻ doanh thu của V-Green được cam kết trong tối thiểu bao nhiêu năm?",
+    "expected_keywords": ["10 năm", "cam kết"],
+    "expected_source_names": ["test.txt.txt"]
+  },
+  {
+    "question": "Các trạm sạc nhượng quyền mới phục vụ nhóm khách hàng nào?",
+    "expected_keywords": ["VinFast", "xe máy điện", "ôtô điện"],
+    "expected_source_names": ["test.txt.txt"]
+  },
+  {
+    "question": "Theo ước tính trong bài, thị trường Việt Nam năm 2025 đạt bao nhiêu ôtô điện và xe máy điện?",
+    "expected_keywords": ["300.000", "một triệu", "2025"],
+    "expected_source_names": ["test.txt.txt"]
+  },
+  {
+    "question": "V-Green hiện sở hữu quy mô mạng lưới cổng sạc toàn quốc là bao nhiêu?",
+    "expected_keywords": ["150.000 cổng sạc"],
+    "expected_source_names": ["test.txt.txt"]
+  },
+  {
+    "question": "Doanh nghiệp cam kết đầu tư bao nhiêu trong 2 năm tới để mở rộng hạ tầng sạc?",
+    "expected_keywords": ["10.000 tỷ đồng", "2 năm"],
+    "expected_source_names": ["test.txt.txt"]
+  },
+
+  {
+    "question": "Tài liệu phân chia công việc chatbot RAG chọn phương án nào và gồm các lane chính nào?",
+    "expected_keywords": ["Phương án B", "Embedding + Indexing", "Retrieval"],
+    "expected_source_names": ["docs_phan_chia_cong_viec_chatbot_rag.docx"]
+  },
+  {
+    "question": "Phạm vi MVP của dự án chatbot RAG bao gồm các năng lực nào?",
+    "expected_keywords": ["Upload/ingest", "retrieval hybrid", "chat streaming"],
+    "expected_source_names": ["docs_phan_chia_cong_viec_chatbot_rag.docx"]
+  },
+  {
+    "question": "Định dạng đầu vào tài liệu ở giai đoạn MVP được nêu là gì?",
+    "expected_keywords": ["DOCX", "TXT", "PDF", "MD"],
+    "expected_source_names": ["docs_phan_chia_cong_viec_chatbot_rag.docx"]
+  },
+  {
+    "question": "Thứ tự ưu tiên triển khai theo phụ thuộc kỹ thuật trong tài liệu là gì?",
+    "expected_keywords": ["Data -> Embedding + Indexing -> Retrieval -> RAG Core -> Eval/DevOps + Frontend nhẹ"],
+    "expected_source_names": ["docs_phan_chia_cong_viec_chatbot_rag.docx"]
+  },
+  {
+    "question": "Trong lane Retrieval Owner, deliverable chính được yêu cầu là gì?",
+    "expected_keywords": ["cấu hình retrieval chính thức", "benchmark retrieval", "top-k"],
+    "expected_source_names": ["docs_phan_chia_cong_viec_chatbot_rag.docx"]
+  },
+
+  {
+    "question": "English for Career Development syllabus diễn ra trong khoảng thời gian nào?",
+    "expected_keywords": ["January 3", "March 27", "2023"],
+    "expected_source_names": ["English for Career Development Syllabus 2023.pdf"]
+  },
+  {
+    "question": "Khóa English for Career Development nhắm tới nhóm trình độ người học nào?",
+    "expected_keywords": ["high-beginner", "low-intermediate", "non-native English speakers"],
+    "expected_source_names": ["English for Career Development Syllabus 2023.pdf"]
+  },
+  {
+    "question": "Module 2, Module 3 và Module 5 của khóa học lần lượt tập trung vào nội dung gì?",
+    "expected_keywords": ["resume", "cover letter", "interview"],
+    "expected_source_names": ["English for Career Development Syllabus 2023.pdf"]
+  },
+  {
+    "question": "Ai là đơn vị tài trợ và đơn vị quản trị khóa học OPEN này?",
+    "expected_keywords": ["U.S. Department of State", "FHI 360"],
+    "expected_source_names": ["English for Career Development Syllabus 2023.pdf"]
+  },
+  {
+    "question": "Tài liệu syllabus được cấp phép theo giấy phép nào?",
+    "expected_keywords": ["Creative Commons Attribution 4.0"],
+    "expected_source_names": ["English for Career Development Syllabus 2023.pdf"]
+  },
+  {
+    "question": "Mỗi module của khóa học yêu cầu người học dành khoảng bao nhiêu thời gian?",
+    "expected_keywords": ["3-5 hours per module", "self-paced"],
+    "expected_source_names": ["English for Career Development Syllabus 2023.pdf"]
+  }
+]

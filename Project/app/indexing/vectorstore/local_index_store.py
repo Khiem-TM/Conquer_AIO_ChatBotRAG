@@ -12,6 +12,8 @@ của nó là:
 
 import json
 import re
+import xml.etree.ElementTree as ET
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -85,9 +87,9 @@ class LocalIndexStore:
     def scan_source_files(self) -> list[Path]:
         """Quét thư mục input và lấy danh sách file nguồn hợp lệ.
 
-        Hiện tại người 2 đang ưu tiên các file `.md` và `.txt` vì đây là dạng
-        text dễ index nhất. File tạm kiểu `~$...` sẽ bị bỏ qua để tránh index
-        nhầm các file lock do editor tạo ra.
+        Hiện tại store hỗ trợ `.md`, `.txt`, `.docx`, `.pdf`.
+        File tạm kiểu `~$...` sẽ bị bỏ qua để tránh index nhầm các file lock do
+        editor tạo ra.
 
         Output:
         - danh sách `Path` đã được sắp xếp
@@ -98,12 +100,12 @@ class LocalIndexStore:
             logger.warning('data_input directory does not exist: %s', data_input_dir)
             return []
 
-        # At the moment person 2 expects plain text-like inputs from the ingest owner.
+        supported_extensions = {'.md', '.txt', '.docx', '.pdf'}
         return [
             file_path
             for file_path in sorted(data_input_dir.rglob('*'))
             if file_path.is_file()
-            and file_path.suffix.lower() in {'.md', '.txt'}
+            and file_path.suffix.lower() in supported_extensions
             and not file_path.name.startswith('~$')
         ]
 
@@ -253,15 +255,58 @@ class LocalIndexStore:
     def read_source_text(self, file_path: Path) -> str:
         """Đọc nội dung text từ một file nguồn.
 
-        Hàm ưu tiên đọc bằng `utf-8`. Nếu file có ký tự lỗi encoding, nó sẽ đọc
-        lại với `errors='ignore'` để cố gắng tận dụng tối đa dữ liệu thay vì làm
-        hỏng cả quá trình build index.
+        Hỗ trợ:
+        - `.md`, `.txt`: đọc utf-8
+        - `.docx`: trích text từ `word/document.xml`
+        - `.pdf`: trích text bằng `pypdf`
         """
+
+        suffix = file_path.suffix.lower()
+        if suffix == '.docx':
+            return self._read_docx_text(file_path)
+        if suffix == '.pdf':
+            return self._read_pdf_text(file_path)
 
         try:
             return file_path.read_text(encoding='utf-8').strip()
         except UnicodeDecodeError:
             return file_path.read_text(encoding='utf-8', errors='ignore').strip()
+
+    def _read_docx_text(self, file_path: Path) -> str:
+        try:
+            with zipfile.ZipFile(file_path) as archive:
+                xml_bytes = archive.read('word/document.xml')
+        except Exception as exc:
+            logger.warning('Failed to read DOCX source %s: %s', file_path, exc)
+            return ''
+
+        try:
+            root = ET.fromstring(xml_bytes)
+        except ET.ParseError as exc:
+            logger.warning('Failed to parse DOCX XML %s: %s', file_path, exc)
+            return ''
+
+        text_nodes: list[str] = []
+        for node in root.iter():
+            if node.tag.endswith('}t') and node.text:
+                text_nodes.append(node.text)
+
+        return '\n'.join(text_nodes).strip()
+
+    def _read_pdf_text(self, file_path: Path) -> str:
+        try:
+            from pypdf import PdfReader
+        except ModuleNotFoundError:
+            logger.warning('pypdf is not installed; skip PDF source %s', file_path)
+            return ''
+
+        try:
+            reader = PdfReader(str(file_path))
+            page_texts = [(page.extract_text() or '').strip() for page in reader.pages]
+            return '\n\n'.join(text for text in page_texts if text).strip()
+        except Exception as exc:
+            logger.warning('Failed to read PDF source %s: %s', file_path, exc)
+            return ''
 
     def split_text(self, text: str) -> list[str]:
         """Chia văn bản thành các chunk tương đối dễ hiểu.

@@ -13,7 +13,10 @@ import hashlib
 import math
 import re
 
-import httpx
+try:
+    import httpx
+except ModuleNotFoundError:
+    httpx = None
 
 from app.indexing.config import settings
 from app.shared.utils import get_logger
@@ -98,6 +101,9 @@ class EmbeddingService:
 
         if not texts:
             return []
+        if httpx is None:
+            logger.warning('httpx is not installed, skipping Ollama embedding and using hashed fallback.')
+            return None
 
         try:
             # Newer Ollama versions expose batch embedding through /api/embed.
