@@ -1,5 +1,15 @@
 from __future__ import annotations
 
+"""Service chính điều phối toàn bộ lifecycle của index.
+
+Nếu `LocalIndexStore` là nơi giữ dữ liệu index và `EmbeddingService` là nơi tạo
+vector, thì `IndexingService` là lớp đứng giữa để:
+- đọc dữ liệu đầu vào
+- gọi embedding
+- quyết định khi nào rebuild hoặc sync
+- trả ra snapshot sẵn sàng bàn giao cho người 3
+"""
+
 import asyncio
 from typing import Any
 
@@ -13,21 +23,56 @@ logger = get_logger(__name__)
 
 
 class IndexingService:
+    """Service cấp cao nhất của lane Embedding + Indexing.
+
+    Đây là class mà teammate nên đọc đầu tiên nếu muốn hiểu nhanh phần của
+    người 2, vì nó điều phối gần như toàn bộ workflow quan trọng.
+    """
+
     def __init__(
         self,
         embedding_service: EmbeddingService | None = None,
         index_store: LocalIndexStore | None = None,
     ) -> None:
+        """Khởi tạo service điều phối cho phần indexing.
+
+        Input:
+        - `embedding_service`: service tạo vector, có thể truyền từ ngoài vào để test
+        - `index_store`: store local, có thể truyền từ ngoài vào để test/mock
+
+        `asyncio.Lock()` được dùng để tránh các thao tác như rebuild/sync/delete
+        chạy chồng lên nhau trong cùng một tiến trình.
+        """
+
         self.embedding_service = embedding_service or EmbeddingService()
         self.index_store = index_store or LocalIndexStore()
         self._lock = asyncio.Lock()
 
     async def get_status(self) -> IndexStatus:
+        """Lấy trạng thái hiện tại của index.
+
+        Hàm này không build lại dữ liệu, mà chỉ đọc snapshot hiện có rồi chuyển
+        thành `IndexStatus`. Nó phù hợp cho việc check nhanh xem index đã sẵn
+        sàng chưa trước khi làm các bước tiếp theo.
+        """
+
         async with self._lock:
             index_data = self.index_store.load_index_data()
             return self.index_store.build_status_response(index_data)
 
     async def rebuild_index(self) -> IndexOperationResult:
+        """Build lại toàn bộ index từ đầu.
+
+        Đây là thao tác "full rebuild". Tất cả source hiện có trong thư mục input
+        sẽ được đọc lại, chia chunk lại, embed lại và ghi đè snapshot cũ.
+
+        Dùng khi:
+        - mới khởi tạo index
+        - thay đổi model embedding
+        - thay đổi logic chunking
+        - muốn làm sạch dữ liệu index cũ
+        """
+
         async with self._lock:
             with timer() as t:
                 source_files = self.index_store.scan_source_files()
@@ -43,6 +88,19 @@ class IndexingService:
             )
 
     async def sync_index(self) -> IndexOperationResult:
+        """Đồng bộ index theo thay đổi mới của dữ liệu nguồn.
+
+        Mục tiêu của `sync` là tránh phải rebuild toàn bộ mỗi lần có thay đổi nhỏ.
+        Hàm sẽ:
+        1. Quét lại các file hiện có trong input.
+        2. So sánh với snapshot cũ theo `source_id` và `updated_at_ns`.
+        3. Chỉ rebuild những file mới hoặc file đã thay đổi.
+        4. Xóa các source không còn tồn tại.
+
+        Đây là hàm quan trọng nhất để thể hiện yêu cầu "incremental update"
+        trong phần việc của người 2.
+        """
+
         async with self._lock:
             with timer() as t:
                 current_files = self.index_store.scan_source_files()
@@ -75,6 +133,7 @@ class IndexingService:
                     )
 
                 existing_sources = index_data.get('sources', {})
+                # Compare file timestamps to decide which sources need reindexing.
                 updated_source_ids = sorted(
                     source_id
                     for source_id, file_path in current_source_map.items()
@@ -114,6 +173,7 @@ class IndexingService:
                         rebuilt_backend = index_data.get('embedding_backend', 'simple')
 
                     existing_backend = index_data.get('embedding_backend', 'pending')
+                    # Mixed backends would make the stored vectors inconsistent, so rebuild all.
                     if preserved_chunks and existing_backend != rebuilt_backend:
                         logger.info('Embedding backend changed during sync, rebuilding full index.')
                         index_data = await self._build_index_data(current_files)
@@ -150,6 +210,18 @@ class IndexingService:
             )
 
     async def delete_source(self, source_id: str) -> IndexOperationResult:
+        """Xóa một source cụ thể ra khỏi index.
+
+        Input:
+        - `source_id`: mã source đã được tạo bởi `build_source_id()`
+
+        Output:
+        - `IndexOperationResult` cho biết source có bị xóa thật hay không
+
+        Hàm này hữu ích khi cần xóa một tài liệu khỏi index mà không muốn rebuild
+        toàn bộ dữ liệu.
+        """
+
         async with self._lock:
             with timer() as t:
                 index_data = self.index_store.load_index_data() or self.index_store.empty_index_data()
@@ -173,6 +245,19 @@ class IndexingService:
             )
 
     async def get_index_snapshot(self) -> dict[str, Any]:
+        """Trả về snapshot đầy đủ của index để bàn giao cho tầng retrieval.
+
+        Nếu index chưa tồn tại hoặc model embedding hiện tại khác với model đã
+        lưu trong snapshot, hàm sẽ tự build lại trước khi trả dữ liệu.
+
+        Output:
+        - dictionary chứa:
+          - metadata cấp source
+          - danh sách chunk
+          - vector tương ứng
+          - thông tin embedding backend/model
+        """
+
         async with self._lock:
             index_data = self.index_store.load_index_data()
             if not index_data or index_data.get('embedding_model') != settings.embedding_model:
@@ -182,8 +267,21 @@ class IndexingService:
             return index_data
 
     async def _build_index_data(self, source_files: list[Any]) -> dict[str, Any]:
+        """Tạo một snapshot index hoàn chỉnh từ danh sách file nguồn.
+
+        Đây là hàm nội bộ được dùng bởi `rebuild_index()`, `sync_index()` và
+        `get_index_snapshot()`.
+
+        Luồng xử lý:
+        1. Store chuẩn bị chunk records và danh sách text.
+        2. Embedding service biến text thành vector.
+        3. Vector được gắn lại vào từng chunk.
+        4. Trả ra snapshot hoàn chỉnh để ghi xuống JSON.
+        """
+
         raw_chunks, texts = self.index_store.prepare_chunk_records(source_files)
         if raw_chunks:
+            # Vectors are attached directly to each chunk record before writing the snapshot.
             vectors, embedding_backend = await self.embedding_service.embed_texts(texts)
             for chunk, vector in zip(raw_chunks, vectors, strict=True):
                 chunk['vector'] = vector

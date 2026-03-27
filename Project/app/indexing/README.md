@@ -72,6 +72,30 @@ Phần này là local vector store tối giản:
 
 CLI độc lập để chạy phần indexing mà không cần sửa API của người khác.
 
+## Chú thích trong code
+
+Để teammate mở file ra là hiểu nhanh, các file code chính đã được thêm:
+
+- module docstring ở đầu file để mô tả vai trò của file
+- comment ngắn ở các đoạn dễ gây khó hiểu như:
+  - fallback từ Ollama sang hashed embedding
+  - logic sync theo `updated_at_ns`
+  - lý do phải rebuild khi backend embedding thay đổi
+  - cách chunk dài được tách có overlap
+
+Mục tiêu của phần chú thích này là giúp đọc nhanh, không phải thay đổi logic.
+
+## Note nhanh theo file
+
+| File | Dùng để làm gì | Input chính | Output chính | Ghi chú |
+|---|---|---|---|---|
+| `config.py` | Chứa toàn bộ setting riêng của người 2 | Biến môi trường như `EMBEDDING_MODEL`, `INDEX_STORAGE_PATH` | `settings: IndexingSettings` | Tách khỏi `app/shared/configs` để không đụng lane của người khác |
+| `schemas.py` | Định nghĩa model kết quả nội bộ cho indexing | Dữ liệu trạng thái index | `IndexStatus`, `IndexOperationResult` | Chỉ dùng trong `app/indexing` |
+| `embeddings/embedding_service.py` | Tạo embedding cho text | `texts: list[str]`, `question: str` | `list[list[float]]`, `embedding_backend` | Ưu tiên Ollama, fallback hashed embedding |
+| `vectorstore/local_index_store.py` | Quản lý dữ liệu index local | File nguồn, `index_data`, đường dẫn lưu | Chunk records, sources payload, file `index_store.json` | Đây là local store tối giản để demo |
+| `index_service.py` | Điều phối lifecycle của index | File nguồn từ `data_input`, cấu hình embedding | Kết quả `rebuild/sync/status/delete/snapshot` | Đây là file chính của người 2 |
+| `cli.py` | Chạy phần indexing độc lập | Lệnh CLI như `status`, `rebuild`, `sync` | JSON in ra terminal | Dùng để test/demo mà không cần sửa API |
+
 ## Model được chọn
 
 Mặc định:
@@ -118,6 +142,187 @@ Kiểm tra:
 ### `get_index_snapshot`
 
 Đây là điểm bàn giao cho người 3. Người 3 có thể lấy snapshot index này để làm retrieval, rerank và benchmark.
+
+## Settings note
+
+| Setting | Default | Dùng để làm gì |
+|---|---|---|
+| `OLLAMA_BASE_URL` | `http://ollama:11434` | Địa chỉ service Ollama để gọi embedding |
+| `EMBEDDING_MODEL` | `llama3.1:8b` | Model embedding mặc định của người 2 |
+| `REQUEST_TIMEOUT_SECONDS` | `120` | Timeout khi gọi HTTP tới Ollama |
+| `INDEX_DATA_INPUT_DIR` | `data_input` | Thư mục dữ liệu đầu vào mà người 2 đang đọc để build index |
+| `INDEX_STORAGE_PATH` | `data/index_store.json` | File JSON lưu local index |
+| `EMBEDDING_DIMENSIONS` | `128` | Số chiều của fallback hashed embedding |
+| `INDEX_CHUNK_SIZE` | `900` | Độ dài chunk tối đa khi chia text |
+| `INDEX_CHUNK_OVERLAP` | `120` | Số ký tự overlap giữa các chunk dài |
+
+## Input và output của từng file
+
+### `config.py`
+
+- Input:
+  - Biến môi trường của hệ thống
+- Output:
+  - Object `settings`
+- Ý nghĩa:
+  - Đây là nơi gom toàn bộ setting của người 2 để không phải chạm vào setting chung của project
+
+### `schemas.py`
+
+- Input:
+  - Dữ liệu trạng thái hoặc kết quả thao tác index
+- Output:
+  - `IndexStatus`
+  - `IndexOperationResult`
+- Ý nghĩa:
+  - Chuẩn hóa dữ liệu trả về cho CLI hoặc khi người khác cần đọc trạng thái index
+
+### `embeddings/embedding_service.py`
+
+- Input:
+  - `embed_texts(texts)` nhận danh sách đoạn text
+  - `embed_query(question, embedding_backend)` nhận 1 câu hỏi
+- Output:
+  - Vector embedding
+  - Backend đang dùng: `ollama` hoặc `simple`
+- Ý nghĩa:
+  - Đây là lớp biến text thành vector
+  - Nếu Ollama sẵn sàng thì dùng Ollama
+  - Nếu chưa sẵn thì fallback sang hashed embedding để demo vẫn chạy được
+
+### `vectorstore/local_index_store.py`
+
+- Input:
+  - File `.md`, `.txt` trong thư mục input
+  - `index_data` để đọc/ghi trạng thái index
+- Output:
+  - `raw_chunks`
+  - `texts`
+  - `sources`
+  - `IndexStatus`
+  - `IndexOperationResult`
+  - File `index_store.json`
+- Ý nghĩa:
+  - Đây là nơi quản lý dữ liệu index ở local
+  - Chịu trách nhiệm quét file, chia chunk, ghi file JSON, build payload metadata
+
+### `index_service.py`
+
+- Input:
+  - File nguồn từ `LocalIndexStore`
+  - Vector từ `EmbeddingService`
+- Output:
+  - `get_status()` -> trạng thái hiện tại của index
+  - `rebuild_index()` -> build lại toàn bộ index
+  - `sync_index()` -> cập nhật index theo thay đổi mới
+  - `delete_source()` -> xóa một nguồn dữ liệu trong index
+  - `get_index_snapshot()` -> snapshot bàn giao cho người 3
+- Ý nghĩa:
+  - Đây là service điều phối chính
+  - Nếu cần review nhanh phần của người 2 thì nên đọc file này trước
+
+### `cli.py`
+
+- Input:
+  - Lệnh dòng lệnh
+- Output:
+  - JSON in ra terminal
+- Ý nghĩa:
+  - Dùng để demo nhanh hoặc test logic indexing mà không phải đụng API
+
+## Giải thích theo từng hàm
+
+### `config.py`
+
+| Hàm / thành phần | Giải thích |
+|---|---|
+| `_get_int_env(name, default)` | Đọc biến môi trường và ép kiểu sang `int`. Nếu không đọc được thì dùng giá trị mặc định để tránh crash khi khởi động. |
+| `IndexingSettings` | Gom toàn bộ setting riêng của người 2 vào một chỗ. |
+| `settings` | Object config dùng chung cho toàn bộ package `app/indexing`. |
+
+### `embeddings/embedding_service.py`
+
+| Hàm | Giải thích |
+|---|---|
+| `embed_texts(texts)` | Hàm chính để tạo embedding cho danh sách chunk text. Tự chọn giữa Ollama thật hoặc fallback hashed embedding. |
+| `embed_query(question, embedding_backend)` | Tạo embedding cho query/câu hỏi đơn lẻ, ưu tiên dùng cùng backend với lúc build index. |
+| `_embed_texts_with_ollama(texts)` | Gọi API embedding của Ollama. Hỗ trợ cả endpoint mới và endpoint cũ. |
+| `_embed_texts_with_hashing(texts)` | Tạo embedding giả lập bằng cách hash token vào vector cố định số chiều. |
+| `_tokenize(text)` | Tách text thành token đơn giản để phục vụ hashed embedding. |
+| `_normalize_vector(vector)` | Chuẩn hóa vector để độ dài vector ổn định, thuận lợi cho việc so sánh về sau. |
+
+### `vectorstore/local_index_store.py`
+
+| Hàm | Giải thích |
+|---|---|
+| `__init__()` | Khởi tạo cache bộ nhớ và xác định thư mục gốc của project để resolve path. |
+| `load_index_data()` | Đọc snapshot index từ file JSON hoặc từ cache nếu đã có sẵn trong RAM. |
+| `write_index_data(index_data)` | Ghi snapshot index xuống file JSON và đồng bộ lại cache trong bộ nhớ. |
+| `scan_source_files()` | Quét thư mục input, lấy các file `.md` và `.txt` hợp lệ để đưa vào index. |
+| `prepare_chunk_records(source_files)` | Đọc file, chia chunk, tạo metadata chunk và trả thêm danh sách text để đi embedding. |
+| `build_sources_payload(source_files)` | Tạo metadata ở cấp source như tên file, đường dẫn và thời điểm cập nhật. |
+| `build_status_response(index_data)` | Rút gọn snapshot thành thông tin trạng thái dễ đọc. |
+| `build_operation_response(...)` | Tạo kết quả đầy đủ cho các thao tác như rebuild, sync, delete. |
+| `empty_index_data()` | Tạo snapshot rỗng khi index chưa tồn tại. |
+| `build_source_id(file_path)` | Sinh `source_id` ổn định từ path tương đối của file. |
+| `read_source_text(file_path)` | Đọc text từ file, có fallback khi gặp lỗi encoding. |
+| `split_text(text)` | Chia văn bản thành các chunk theo block/đoạn trước khi phải cắt cứng. |
+| `split_long_block(text)` | Cắt một block dài thành nhiều chunk có overlap để giữ ngữ cảnh. |
+| `get_data_input_dir()` | Trả về đường dẫn tuyệt đối tới thư mục dữ liệu đầu vào. |
+| `get_storage_path()` | Trả về đường dẫn tuyệt đối tới file lưu snapshot index. |
+| `utc_now()` | Tạo timestamp UTC ở dạng ISO string để lưu vào metadata. |
+| `resolve_path(value)` | Chuẩn hóa path tương đối hoặc tuyệt đối để dùng nhất quán trong mọi môi trường chạy. |
+
+### `index_service.py`
+
+| Hàm | Giải thích |
+|---|---|
+| `__init__(...)` | Tiêm các dependency chính và tạo `asyncio.Lock()` để tránh thao tác index chạy chồng nhau. |
+| `get_status()` | Lấy trạng thái hiện tại của index mà không build lại dữ liệu. |
+| `rebuild_index()` | Build lại toàn bộ index từ đầu. |
+| `sync_index()` | Chỉ cập nhật các source mới/thay đổi và xóa source cũ không còn tồn tại. |
+| `delete_source(source_id)` | Xóa một source cụ thể khỏi index mà không phải rebuild hết. |
+| `get_index_snapshot()` | Lấy snapshot hoàn chỉnh của index để bàn giao cho người 3. |
+| `_build_index_data(source_files)` | Hàm nội bộ để biến danh sách file nguồn thành snapshot index hoàn chỉnh. |
+
+### `cli.py`
+
+| Hàm | Giải thích |
+|---|---|
+| `_run_command(args)` | Nhận lệnh từ CLI và gọi đúng hàm tương ứng trong `IndexingService`. |
+| `build_parser()` | Khai báo các lệnh CLI như `status`, `rebuild`, `sync`, `snapshot`, `delete-source`. |
+| `main()` | Điểm vào chính khi chạy bằng terminal; parse args, chạy command và in JSON kết quả. |
+
+## Input chuẩn và output bàn giao
+
+### Input mà người 2 đang kỳ vọng
+
+- Dữ liệu text đã tương đối sạch
+- Hiện tại đọc từ `data_input`
+- Phù hợp nhất khi người 1 bàn giao text hoặc chunk-ready text
+
+### Output mà người 2 bàn giao cho người 3
+
+- File index local tại `data/index_store.json`
+- Snapshot từ `get_index_snapshot()`
+- Metadata gồm:
+  - `source_id`
+  - `source_name`
+  - `chunk_id`
+  - `text`
+  - `vector`
+  - `embedding_backend`
+  - `embedding_model`
+
+## Nên đọc file nào trước
+
+Nếu teammate cần đọc nhanh phần của người 2:
+
+1. `index_service.py`
+2. `README.md`
+3. `embeddings/embedding_service.py`
+4. `vectorstore/local_index_store.py`
+5. `cli.py`
 
 ## Cách chạy độc lập
 
