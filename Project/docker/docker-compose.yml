@@ -1,4 +1,42 @@
+version: "3.9"
+
 services:
+  # Ollama LLM Service
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rag-chatbot-ollama
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - rag-network
+
+  # Ollama Model Initialization
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: rag-chatbot-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "echo 'Pulling llama3.1:8b model...' &&
+      OLLAMA_HOST=http://ollama:11434 ollama pull llama3.1:8b &&
+      echo 'Model pulled successfully'"
+    restart: "no"
+    networks:
+      - rag-network
+
+  # FastAPI Backend
   api:
     build:
       context: ..
@@ -6,6 +44,9 @@ services:
     container_name: rag-chatbot-api
     env_file:
       - ../.env
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - CORS_ORIGINS=["http://localhost:3000","http://localhost:3001","http://127.0.0.1:3000","http://127.0.0.1:3001"]
     ports:
       - "8000:8000"
     volumes:
@@ -14,31 +55,19 @@ services:
       - ../data:/app/data
     depends_on:
       ollama:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
+    networks:
+      - rag-network
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: rag-chatbot-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    restart: unless-stopped
-
-  ollama-init:
-    image: ollama/ollama:latest
-    container_name: rag-chatbot-ollama-init
-    depends_on:
-      - ollama
-    entrypoint: ["/bin/sh", "-c"]
-    command: >
-      "sleep 5 &&
-      ollama pull llama3.2:3b"
-    environment:
-      - OLLAMA_HOST=http://ollama:11434
-    restart: "no"
+networks:
+  rag-network:
+    driver: bridge
 
 volumes:
   ollama_data:
-

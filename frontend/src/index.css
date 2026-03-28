@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  box-sizing: border-box;
+}
+
+body {
+  background: #212121;
+  color: #ececf1;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  margin: 0;
+}
+
+/* Thin scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Message entrance animation */
+@keyframes msgIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.msg-in {
+  animation: msgIn 0.22s ease-out;
+}
+
+/* Typing dots */
+@keyframes bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+.dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #8e8ea0;
+}
+.dot:nth-child(1) {
+  animation: bounce 1.2s ease-in-out infinite 0s;
+}
+.dot:nth-child(2) {
+  animation: bounce 1.2s ease-in-out infinite 0.15s;
+}
+.dot:nth-child(3) {
+  animation: bounce 1.2s ease-in-out infinite 0.3s;
+}
+
+/* Blinking cursor for streaming text */
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+.cursor-blink {
+  animation: blink 0.75s step-start infinite;
+}
+
+/* Sidebar transition */
+.sidebar-transition {
+  transition: width 0.2s ease;
+}
+
+/* Prose for chat messages */
+.prose-chat {
+  @apply text-gray-200;
+}
+.prose-chat p {
+  @apply mb-4 last:mb-0;
+}
+.prose-chat strong {
+  @apply text-white font-bold;
+}
+.prose-chat code {
+  @apply bg-black/40 px-1.5 py-0.5 rounded text-sm text-indigo-300 font-mono;
+}
+.prose-chat pre {
+  @apply bg-black/40 p-4 rounded-xl my-4 overflow-x-auto border border-white/5;
+}
+.prose-chat ul {
+  @apply list-disc list-inside mb-4;
+}
+.prose-chat ol {
+  @apply list-decimal list-inside mb-4;
+}
+
+/* Glassmorphism popover */
+.citation-popover {
+  @apply bg-[#2f2f2f]/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-3 z-50 text-xs text-gray-300;
+}
+
+.streaming-text::after {
+  content: '';
+  @apply inline-block w-2 h-4 ml-1 bg-indigo-500 animate-pulse align-middle;
+}

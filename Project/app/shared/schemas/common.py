@@ -14,8 +14,23 @@ class ApiResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     success: bool = False
-    error_code: str = 'INTERNAL_ERROR'
-    message: str = 'Unexpected server error'
+    error: dict[str, str] = Field(
+        default_factory=lambda: {
+            'code': 'INTERNAL_ERROR',
+            'message': 'Unexpected server error',
+        }
+    )
+
+    class Config:
+        json_schema_extra = {
+            'example': {
+                'success': False,
+                'error': {
+                    'code': 'VALIDATION_ERROR',
+                    'message': 'Question must be at least 1 character',
+                },
+            }
+        }
 
 
 class Citation(BaseModel):
