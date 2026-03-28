@@ -42,17 +42,23 @@ class IndexingSettings:
     - đọc dữ liệu đầu vào
     - gọi Ollama để tạo embedding
     - chia chunk
-    - lưu local index ra file JSON
+    - lưu index (local JSON hoặc Qdrant)
 
     Dùng `dataclass(frozen=True)` để thể hiện đây là cấu hình chỉ đọc sau khi
     được khởi tạo, tránh việc bị sửa lung tung trong quá trình chạy.
     """
 
     ollama_base_url: str = os.getenv('OLLAMA_BASE_URL', 'http://ollama:11434')
-    embedding_model: str = os.getenv('EMBEDDING_MODEL', 'llama3.1:8b')
+    embedding_model: str = os.getenv('EMBEDDING_MODEL', os.getenv('OLLAMA_MODEL', 'llama3.2:3b'))
     request_timeout_seconds: int = _get_int_env('REQUEST_TIMEOUT_SECONDS', 120)
     data_input_dir: str = os.getenv('INDEX_DATA_INPUT_DIR', 'data_input')
     index_storage_path: str = os.getenv('INDEX_STORAGE_PATH', 'data/index_store.json')
+
+    # index_store_backend: "local" | "qdrant"
+    index_store_backend: str = os.getenv('INDEX_STORE_BACKEND', 'qdrant').strip().lower()
+    qdrant_path: str = os.getenv('QDRANT_PATH', 'data/qdrant')
+    qdrant_collection: str = os.getenv('QDRANT_COLLECTION', 'rag_chunks')
+
     embedding_dimensions: int = _get_int_env('EMBEDDING_DIMENSIONS', 128)
     index_chunk_size: int = _get_int_env('INDEX_CHUNK_SIZE', 900)
     index_chunk_overlap: int = _get_int_env('INDEX_CHUNK_OVERLAP', 120)

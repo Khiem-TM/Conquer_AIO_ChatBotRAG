@@ -5,9 +5,10 @@ from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.data_ingest import IngestService
 from app.rag_core.chat_service import ChatService
 from app.shared.configs import settings
-from app.shared.schemas import ChatRequest, ChatResponse, HealthStatus
+from app.shared.schemas import ApiResponse, ChatRequest, ChatResponse, HealthStatus
 from app.shared.utils import configure_logging
 
 configure_logging(settings.log_level)
@@ -23,6 +24,7 @@ app.add_middleware(
 )
 
 chat_service = ChatService()
+ingest_service = IngestService(data_input_dir='data_input')
 
 
 @app.get('/health', response_model=HealthStatus, tags=['system'])
@@ -33,6 +35,12 @@ async def health_check() -> HealthStatus:
         model=settings.ollama_model,
         timestamp=datetime.now(timezone.utc),
     )
+
+
+@app.post(f"{settings.api_prefix}/ingest", response_model=ApiResponse, tags=['ingest'])
+async def ingest() -> ApiResponse:
+    result = ingest_service.run()
+    return ApiResponse(success=True, message=result.message, data=result.__dict__)
 
 
 @app.post(f"{settings.api_prefix}/chat", response_model=ChatResponse, tags=['chat'])

@@ -16,7 +16,7 @@ from typing import Any
 from app.indexing.config import settings
 from app.indexing.embeddings import EmbeddingService
 from app.indexing.schemas import IndexOperationResult, IndexStatus
-from app.indexing.vectorstore import LocalIndexStore
+from app.indexing.vectorstore import LocalIndexStore, QdrantIndexStore
 from app.shared.utils import get_logger, timer
 
 logger = get_logger(__name__)
@@ -45,7 +45,12 @@ class IndexingService:
         """
 
         self.embedding_service = embedding_service or EmbeddingService()
-        self.index_store = index_store or LocalIndexStore()
+        if index_store is not None:
+            self.index_store = index_store
+        elif settings.index_store_backend == 'qdrant':
+            self.index_store = QdrantIndexStore()
+        else:
+            self.index_store = LocalIndexStore()
         self._lock = asyncio.Lock()
 
     async def get_status(self) -> IndexStatus:

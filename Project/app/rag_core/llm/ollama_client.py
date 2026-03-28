@@ -15,6 +15,10 @@ class OllamaClient:
             'model': settings.ollama_model,
             'prompt': prompt,
             'stream': False,
+            'options': {
+                'num_predict': 256,
+                'temperature': 0.2,
+            },
         }
 
         for base_url in candidates:

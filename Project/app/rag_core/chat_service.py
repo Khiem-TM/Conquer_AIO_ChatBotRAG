@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from app.rag_core.citation.citation_builder import CitationBuilder
 from app.rag_core.context.context_builder import ContextBuilder
 from app.rag_core.llm.ollama_client import OllamaClient
@@ -26,7 +28,16 @@ class ChatService:
         with timer() as t:
             contexts = await self.context_builder.retrieve(payload.question, payload.top_k)
             prompt = self.prompt_builder.build(payload.question, contexts)
-            answer = await self.llm_client.generate(prompt)
+            try:
+                answer = await asyncio.wait_for(
+                    self.llm_client.generate(prompt),
+                    timeout=max(10, min(45, settings.request_timeout_seconds)),
+                )
+            except asyncio.TimeoutError:
+                answer = (
+                    'Model đang xử lý quá lâu nên hệ thống trả về fallback an toàn. '
+                    'Bạn vui lòng thử lại với câu hỏi ngắn hơn hoặc giảm top_k.'
+                )
             citations = self.citation_builder.build(contexts, payload.include_citations)
 
         return ChatResponse(
