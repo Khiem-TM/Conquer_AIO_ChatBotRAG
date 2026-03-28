@@ -22,6 +22,10 @@ from app.shared.utils import get_logger, timer
 logger = get_logger(__name__)
 
 
+class IndexNotReadyError(RuntimeError):
+    """Raised when index snapshot is requested before index is built."""
+
+
 class IndexingService:
     """Service cấp cao nhất của lane Embedding + Indexing.
 
@@ -250,25 +254,27 @@ class IndexingService:
             )
 
     async def get_index_snapshot(self) -> dict[str, Any]:
-        """Trả về snapshot đầy đủ của index để bàn giao cho tầng retrieval.
+        """Trả về snapshot index hiện có, không tự build lại.
 
-        Nếu index chưa tồn tại hoặc model embedding hiện tại khác với model đã
-        lưu trong snapshot, hàm sẽ tự build lại trước khi trả dữ liệu.
+        Contract mới:
+        - Nếu index chưa sẵn sàng: raise `IndexNotReadyError`
+        - Nếu embedding_model của snapshot khác config hiện tại: raise `IndexNotReadyError`
 
-        Output:
-        - dictionary chứa:
-          - metadata cấp source
-          - danh sách chunk
-          - vector tương ứng
-          - thông tin embedding backend/model
+        Caller (API layer) phải chủ động gọi ingest/rebuild/sync trước khi chat.
         """
 
         async with self._lock:
             index_data = self.index_store.load_index_data()
-            if not index_data or index_data.get('embedding_model') != settings.embedding_model:
-                source_files = self.index_store.scan_source_files()
-                index_data = await self._build_index_data(source_files)
-                self.index_store.write_index_data(index_data)
+            if not index_data:
+                raise IndexNotReadyError('Index not built yet. Please run ingest/sync first.')
+
+            snapshot_model = str(index_data.get('embedding_model', '')).strip()
+            expected_model = str(settings.embedding_model).strip()
+            if snapshot_model != expected_model:
+                raise IndexNotReadyError(
+                    'Index embedding_model mismatch. Please rebuild/sync index with current embedding model.'
+                )
+
             return index_data
 
     async def _build_index_data(self, source_files: list[Any]) -> dict[str, Any]:

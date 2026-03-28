@@ -1,7 +1,11 @@
 {
   "embedding_backend": "simple",
   "embedding_model": "llama3.2:3b",
+<<<<<<< Updated upstream
   "built_at": "2026-03-28T07:47:00.986146+00:00",
+=======
+  "built_at": "2026-03-28T05:20:16.348590+00:00",
+>>>>>>> Stashed changes
   "sources": {
     "English for Career Development Syllabus 2023.pdf": {
       "source_name": "English for Career Development Syllabus 2023.pdf",
@@ -20,8 +24,13 @@
     },
     "docs_phan_chia_cong_viec_chatbot_rag.docx": {
       "source_name": "docs_phan_chia_cong_viec_chatbot_rag.docx",
+<<<<<<< Updated upstream
       "file_path": "/Users/AI VietNam/Warm Up 02/Conquer/Conquer_AIO_ChatBotRAG/Project/data_input/docs_phan_chia_cong_viec_chatbot_rag.docx",
       "updated_at_ns": 1774623071828328083
+=======
+      "file_path": "/app/data_input/docs_phan_chia_cong_viec_chatbot_rag.docx",
+      "updated_at_ns": 1774629873680479700
+>>>>>>> Stashed changes
     },
     "rag_test_notes.docx": {
       "source_name": "rag_test_notes.docx",
@@ -40,6 +49,7 @@
     },
     "rag_test_summary.pdf": {
       "source_name": "rag_test_summary.pdf",
+<<<<<<< Updated upstream
       "file_path": "/Users/AI VietNam/Warm Up 02/Conquer/Conquer_AIO_ChatBotRAG/Project/data_input/rag_test_summary.pdf",
       "updated_at_ns": 1774674437975089916
     },
@@ -47,6 +57,20 @@
       "source_name": "test.txt.txt",
       "file_path": "/Users/AI VietNam/Warm Up 02/Conquer/Conquer_AIO_ChatBotRAG/Project/data_input/test.txt.txt",
       "updated_at_ns": 1774623071833118450
+=======
+      "file_path": "/app/data_input/rag_test_summary.pdf",
+      "updated_at_ns": 1774629873677484000
+    },
+    "test.txt.txt": {
+      "source_name": "test.txt.txt",
+      "file_path": "/app/data_input/test.txt.txt",
+      "updated_at_ns": 1774629873681477200
+    },
+    "rag_test_company_policy_law.md": {
+      "source_name": "rag_test_company_policy_law.md",
+      "file_path": "/app/data_input/rag_test_company_policy_law.md",
+      "updated_at_ns": 1774675036269562100
+>>>>>>> Stashed changes
     }
   },
   "chunks": []

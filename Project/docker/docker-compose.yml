@@ -1,7 +1,6 @@
 version: "3.9"
 
 services:
-  # Ollama LLM Service
   ollama:
     image: ollama/ollama:latest
     container_name: rag-chatbot-ollama
@@ -20,7 +19,6 @@ services:
     networks:
       - rag-network
 
-  # Ollama Model Initialization
   ollama-init:
     image: ollama/ollama:latest
     container_name: rag-chatbot-ollama-init
@@ -29,14 +27,14 @@ services:
         condition: service_healthy
     entrypoint: ["/bin/sh", "-c"]
     command: >
-      "echo 'Pulling llama3.1:8b model...' &&
+      "echo 'Pulling generation + embedding models...' &&
       OLLAMA_HOST=http://ollama:11434 ollama pull llama3.1:8b &&
-      echo 'Model pulled successfully'"
+      OLLAMA_HOST=http://ollama:11434 ollama pull nomic-embed-text &&
+      echo 'Models pulled successfully'"
     restart: "no"
     networks:
       - rag-network
 
-  # FastAPI Backend
   api:
     build:
       context: ..

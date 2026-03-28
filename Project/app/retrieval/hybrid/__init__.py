@@ -163,11 +163,6 @@ class HybridRetriever:
         self._is_ready = False
 
     async def build_index(self, force_rebuild: bool = False) -> None:
-        try:
-            await self.indexing_service.sync_index()
-        except Exception as exc:
-            logger.warning('Index sync failed before retrieval build: %s', exc)
-
         index_data = await self.indexing_service.get_index_snapshot()
         signature = self._build_signature(index_data)
         if self._is_ready and not force_rebuild and signature == self._index_signature:

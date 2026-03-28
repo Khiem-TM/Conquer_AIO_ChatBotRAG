@@ -105,9 +105,12 @@ class EmbeddingService:
             logger.warning('httpx is not installed, skipping Ollama embedding and using hashed fallback.')
             return None
 
+        # Embedding calls must fail fast to avoid blocking /chat for many minutes.
+        embed_timeout = max(8, min(20, settings.request_timeout_seconds))
+
         try:
             # Newer Ollama versions expose batch embedding through /api/embed.
-            async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
+            async with httpx.AsyncClient(timeout=embed_timeout) as client:
                 response = await client.post(
                     f'{settings.ollama_base_url}/api/embed',
                     json={'model': settings.embedding_model, 'input': texts},
@@ -120,10 +123,18 @@ class EmbeddingService:
         except Exception as exc:
             logger.warning('Ollama /api/embed is unavailable: %s', exc)
 
+        # Legacy endpoint is one-request-per-text; keep a strict cap for large batches.
+        if len(texts) > 12:
+            logger.warning(
+                'Skip /api/embeddings fallback for large batch size=%s to avoid long rebuild.',
+                len(texts),
+            )
+            return None
+
         legacy_vectors: list[list[float]] = []
         try:
             # Fallback for older Ollama versions that still use /api/embeddings.
-            async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
+            async with httpx.AsyncClient(timeout=embed_timeout) as client:
                 for text in texts:
                     response = await client.post(
                         f'{settings.ollama_base_url}/api/embeddings',

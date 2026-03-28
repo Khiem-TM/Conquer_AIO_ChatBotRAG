@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import asyncio
+from collections.abc import AsyncIterator
 
 from app.rag_core.citation.citation_builder import CitationBuilder
 from app.rag_core.context.context_builder import ContextBuilder
@@ -28,16 +28,7 @@ class ChatService:
         with timer() as t:
             contexts = await self.context_builder.retrieve(payload.question, payload.top_k)
             prompt = self.prompt_builder.build(payload.question, contexts)
-            try:
-                answer = await asyncio.wait_for(
-                    self.llm_client.generate(prompt),
-                    timeout=max(10, min(45, settings.request_timeout_seconds)),
-                )
-            except asyncio.TimeoutError:
-                answer = (
-                    'Model đang xử lý quá lâu nên hệ thống trả về fallback an toàn. '
-                    'Bạn vui lòng thử lại với câu hỏi ngắn hơn hoặc giảm top_k.'
-                )
+            answer = await self.llm_client.generate(prompt)
             citations = self.citation_builder.build(contexts, payload.include_citations)
 
         return ChatResponse(
@@ -47,3 +38,9 @@ class ChatService:
             latency_ms=t.elapsed_ms,
             conversation_id=payload.conversation_id,
         )
+
+    async def ask_stream(self, payload: ChatRequest) -> AsyncIterator[str]:
+        contexts = await self.context_builder.retrieve(payload.question, payload.top_k)
+        prompt = self.prompt_builder.build(payload.question, contexts)
+        async for token in self.llm_client.stream_generate(prompt):
+            yield token

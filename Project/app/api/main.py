@@ -10,9 +10,10 @@ from fastapi.responses import JSONResponse
 from app.routers import chat, ingest_new, upload
 from app.shared.configs import settings
 from app.shared.schemas import HealthStatus
-from app.shared.utils import configure_logging
+from app.shared.utils import configure_logging, get_logger
 
 configure_logging(settings.log_level)
+logger = get_logger(__name__)
 
 app = FastAPI(
     title=settings.app_name,
@@ -20,7 +21,6 @@ app = FastAPI(
     description='RAG Chatbot API with document ingestion and chat history',
 )
 
-# CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -30,10 +30,9 @@ app.add_middleware(
 )
 
 
-# Global exception handler for better error responses
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    """Handle HTTP exceptions with consistent error format."""
+    _ = request
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -48,7 +47,8 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
-    """Handle general exceptions with consistent error format."""
+    _ = request
+    logger.exception('Unhandled exception: %s', exc)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
@@ -61,22 +61,8 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Health check endpoint
 @app.get('/health', response_model=HealthStatus, tags=['system'])
 async def health_check() -> HealthStatus:
-    """
-    Health check endpoint.
-
-    **Response Example:**
-    ```json
-    {
-      "status": "ok",
-      "service": "rag-chatbot-api",
-      "model": "llama3.1:8b",
-      "timestamp": "2024-01-15T10:30:00Z"
-    }
-    ```
-    """
     return HealthStatus(
         status='ok',
         service=settings.app_name,
@@ -85,7 +71,6 @@ async def health_check() -> HealthStatus:
     )
 
 
-# Include routers
 app.include_router(chat.router)
 app.include_router(ingest_new.router)
 app.include_router(upload.router)

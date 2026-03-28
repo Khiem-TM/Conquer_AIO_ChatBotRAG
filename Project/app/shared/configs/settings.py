@@ -14,7 +14,20 @@ class Settings(BaseSettings):
 
     ollama_base_url: str = 'http://localhost:11434'
     ollama_model: str = 'llama3.1:8b'
+    embedding_model: str = 'nomic-embed-text'
     request_timeout_seconds: int = 600
+    ollama_max_concurrent_requests: int = 1
+    ollama_http_max_connections: int = 20
+    ollama_http_max_keepalive_connections: int = 10
+
+    index_data_input_dir: str = 'data_input'
+    index_storage_path: str = 'data/index_store.json'
+    index_store_backend: str = 'qdrant'
+    qdrant_path: str = 'data/qdrant'
+    qdrant_collection: str = 'rag_chunks'
+    embedding_dimensions: int = 128
+    index_chunk_size: int = 900
+    index_chunk_overlap: int = 120
 
     retrieval_top_k: int = 5
     retrieval_candidate_top_k: int = 30

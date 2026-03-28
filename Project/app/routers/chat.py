@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
+from app.indexing.index_service import IndexNotReadyError
 from app.rag_core.chat_service import ChatService
-from app.shared.schemas import ChatRequest, ChatResponse, ApiResponse
+from app.shared.schemas import ApiResponse, ChatRequest, ChatResponse
 from app.shared.storage import history_store
 
 router = APIRouter(prefix='/api/v1', tags=['chat'])
@@ -57,6 +58,15 @@ async def chat(payload: ChatRequest) -> ChatResponse:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f'Validation error: {str(e)}',
+        )
+    except IndexNotReadyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                'code': 'INDEX_NOT_READY',
+                'message': str(e),
+                'hint': 'Call /api/v1/ingest first, then retry chat.',
+            },
         )
     except Exception as e:
         raise HTTPException(
