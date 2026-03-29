@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+app.zip
+reports/
+data/*.db
+data/qdrant/
+data/index_store.json
+_e2e_latest.json
+_chat_probe.txt

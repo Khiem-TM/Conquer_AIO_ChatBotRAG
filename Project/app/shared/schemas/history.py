@@ -36,6 +36,9 @@ class IngestStatus(BaseModel):
     message: str | None = Field(default=None, description='Status message')
     created_at: datetime = Field(..., description='When ingest started')
     completed_at: datetime | None = Field(default=None, description='When ingest finished')
+    document_names: list[str] = Field(
+        default_factory=list, description='Uploaded document names for this ingest'
+    )
 
     class Config:
         json_schema_extra = {

@@ -12,6 +12,7 @@ nhiệm:
 import hashlib
 import math
 import re
+from collections import OrderedDict
 
 try:
     import httpx
@@ -30,6 +31,10 @@ class EmbeddingService:
     Đây là nơi người 2 chốt cách tạo embedding. Các tầng khác không cần biết
     chi tiết Ollama hay fallback hoạt động ra sao, chỉ cần gọi qua class này.
     """
+
+    def __init__(self) -> None:
+        self._query_cache: OrderedDict[str, list[float]] = OrderedDict()
+        self._query_cache_size = max(32, int(getattr(settings, 'retrieval_query_cache_size', 512)))
 
     async def embed_texts(self, texts: list[str]) -> tuple[list[list[float]], str]:
         """Tạo embedding cho danh sách chunk text.
@@ -53,6 +58,9 @@ class EmbeddingService:
         if ollama_vectors:
             return ollama_vectors, 'ollama'
 
+        if not getattr(settings, 'allow_hash_embedding_fallback', True):
+            raise RuntimeError('Embedding fallback disabled (ALLOW_HASH_EMBEDDING_FALLBACK=false).')
+
         # Keep the package runnable even when Ollama embedding endpoints are unavailable.
         logger.info('Using local hashed embeddings for index build.')
         return self._embed_texts_with_hashing(texts), 'simple'
@@ -75,14 +83,23 @@ class EmbeddingService:
         tầng trên có thể tự quyết định fallback tiếp theo.
         """
 
+        cache_key = f'{embedding_backend}:{question.strip().lower()}'
+        cached = self._query_cache_get(cache_key)
+        if cached:
+            return cached
+
         if embedding_backend == 'ollama':
             ollama_vectors = await self._embed_texts_with_ollama([question])
             if ollama_vectors:
-                return ollama_vectors[0]
+                vector = ollama_vectors[0]
+                self._query_cache_set(cache_key, vector)
+                return vector
             logger.warning('Ollama query embedding failed, using keyword-only fallback for search.')
             return []
 
-        return self._embed_texts_with_hashing([question])[0]
+        vector = self._embed_texts_with_hashing([question])[0]
+        self._query_cache_set(cache_key, vector)
+        return vector
 
     async def _embed_texts_with_ollama(self, texts: list[str]) -> list[list[float]] | None:
         """Thử lấy embedding từ Ollama cho một hoặc nhiều đoạn text.
@@ -197,3 +214,16 @@ class EmbeddingService:
         if norm == 0:
             return vector
         return [round(value / norm, 6) for value in vector]
+
+    def _query_cache_get(self, key: str) -> list[float] | None:
+        value = self._query_cache.get(key)
+        if value is None:
+            return None
+        self._query_cache.move_to_end(key)
+        return value
+
+    def _query_cache_set(self, key: str, vector: list[float]) -> None:
+        self._query_cache[key] = vector
+        self._query_cache.move_to_end(key)
+        while len(self._query_cache) > self._query_cache_size:
+            self._query_cache.popitem(last=False)

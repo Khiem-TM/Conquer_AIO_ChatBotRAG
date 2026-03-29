@@ -18,4 +18,7 @@ class ChatResponse(BaseModel):
     model: str
     latency_ms: int
     conversation_id: str | None = None
+    mode: str = Field(default='document_qa')
+    confidence: str = Field(default='medium')
+    metadata: dict[str, object] = Field(default_factory=dict)
 

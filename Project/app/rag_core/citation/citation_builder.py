@@ -18,6 +18,9 @@ class CitationBuilder:
                     chunk_id=ctx.chunk_id,
                     score=ctx.score,
                     snippet=self._shorten(ctx.text),
+                    section=str((ctx.metadata or {}).get('section') or (ctx.metadata or {}).get('heading') or '') or None,
+                    page=self._coerce_int((ctx.metadata or {}).get('page')),
+                    file_path=str((ctx.metadata or {}).get('file_path') or '') or None,
                 )
             )
         return citations
@@ -28,3 +31,10 @@ class CitationBuilder:
             return clean
         return clean[: max_len - 3].rstrip() + '...'
 
+    def _coerce_int(self, value: object) -> int | None:
+        try:
+            if value is None or value == '':
+                return None
+            return int(value)
+        except Exception:
+            return None

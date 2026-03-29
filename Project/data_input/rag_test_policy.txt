@@ -1,1 +1,0 @@
-﻿Chính sách vận hành: luôn hiển thị nguồn trích dẫn và thời gian phản hồi. Nếu timeout thì trả fallback an toàn.

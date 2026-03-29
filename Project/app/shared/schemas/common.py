@@ -39,6 +39,9 @@ class Citation(BaseModel):
     chunk_id: str | None = Field(default=None, description='Retrieved chunk id')
     score: float | None = Field(default=None, description='Retrieval similarity score')
     snippet: str | None = Field(default=None, description='Short supporting text snippet')
+    section: str | None = Field(default=None, description='Section/heading of the supporting text')
+    page: int | None = Field(default=None, description='Page number when available')
+    file_path: str | None = Field(default=None, description='Original file path when available')
 
 
 class HealthStatus(BaseModel):

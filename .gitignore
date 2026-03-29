@@ -1,0 +1,20 @@
+# backend
+backend/.env
+backend/data/*.db
+backend/data/qdrant/
+backend/data/index_store.json
+backend/reports/
+backend/_e2e_latest.json
+backend/_chat_probe.txt
+backend/app.zip
+backend/**/__pycache__/
+backend/**/*.pyc
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+
+# os/editor
+.DS_Store
+.vscode/
+.idea/

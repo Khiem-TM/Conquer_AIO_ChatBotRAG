@@ -1,0 +1,20 @@
+uần 9: ML fundamentals
+
+Mục tiêu thành thạo:
+Hiểu supervised/unsupervised learning, train/val/test, metrics cơ bản.
+
+Học gì
+
+features/labels
+
+overfitting/underfitting
+
+train/validation/test split
+
+regression/classification
+
+accuracy/precision/recall/F1
+
+bias-variance
+
+baseline

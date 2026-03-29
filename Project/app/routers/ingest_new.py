@@ -1,137 +1,69 @@
 """API router for ingest endpoints with status tracking."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
-from app.data_ingest import IngestService
-from app.shared.schemas import ApiResponse, IngestStatus
+from pathlib import Path
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from app.shared.configs import settings
+from app.shared.schemas import ApiResponse
+from app.shared.security import require_local_api_key
+from app.shared.service_container import get_indexing_service
 from app.shared.storage import ingest_status_store
 
 router = APIRouter(prefix='/api/v1', tags=['ingest'])
-ingest_service = IngestService(data_input_dir='data_input')
+DATA_INPUT_DIR = Path(settings.index_data_input_dir)
 
 
-@router.post(
-    '/ingest',
-    response_model=ApiResponse,
-    summary='Start document ingestion',
-    description='Upload and process documents for indexing',
-)
+@router.post('/ingest', response_model=ApiResponse, dependencies=[Depends(require_local_api_key)])
 async def start_ingest() -> ApiResponse:
-    """
-    Start ingesting documents.
-
-    This endpoint triggers document ingestion from the `data_input/` directory.
-    It returns an `ingest_id` which can be used to track progress.
-
-    **Response Example:**
-    ```json
-    {
-      "success": true,
-      "message": "Ingest started",
-      "data": {
-        "ingest_id": "ingest_550e8400-e29b-41d4",
-        "status": "processing"
-      }
-    }
-    ```
-
-    **Next Steps:**
-    1. Call `GET /api/v1/ingest/status/{ingest_id}` to check progress
-    2. Once status is "done", documents are ready for chat
-    """
     try:
-        # Create new ingest job
-        ingest_id = ingest_status_store.create_ingest()
-
-        # Mark as processing
-        ingest_status_store.update_status(ingest_id, 'processing', 'Starting ingestion...')
-
-        # Run ingest (blocking for MVP, could be async later)
+        document_names = sorted(
+            p.relative_to(DATA_INPUT_DIR).as_posix()
+            for p in DATA_INPUT_DIR.rglob('*')
+            if p.is_file() and not p.name.startswith('.')
+        ) if DATA_INPUT_DIR.exists() else []
+        ingest_id = ingest_status_store.create_ingest(document_names=document_names)
+        ingest_status_store.update_status(ingest_id, 'processing', f'Đang ingest {len(document_names)} tài liệu local...')
         try:
-            result = ingest_service.run()
-            ingest_status_store.mark_done(
-                ingest_id,
-                f'Ingested {result.ingested_docs} documents, {result.ingested_chunks} chunks',
+            result = await get_indexing_service().sync_index()
+            ingest_message = (
+                f'Đã ingest {len(document_names)} tài liệu, tạo {result.total_chunks} chunk'
+                if document_names
+                else 'Không có tài liệu nào để ingest'
             )
+            ingest_status_store.mark_done(ingest_id, ingest_message)
             return ApiResponse(
                 success=True,
                 message='Ingest completed',
                 data={
                     'ingest_id': ingest_id,
                     'status': 'done',
-                    'ingested_docs': result.ingested_docs,
-                    'ingested_chunks': result.ingested_chunks,
+                    'ingested_docs': len(document_names),
+                    'ingested_chunks': result.total_chunks,
+                    'updated_sources': result.updated_sources,
+                    'deleted_sources': result.deleted_sources,
+                    'document_names': document_names,
+                    'message': ingest_message,
                 },
             )
         except Exception as e:
             ingest_status_store.mark_failed(ingest_id, f'Error: {str(e)}')
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f'Ingest error: {str(e)}',
-            )
-
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Ingest error: {str(e)}')
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to start ingest: {str(e)}',
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Failed to start ingest: {str(e)}')
 
 
-@router.get(
-    '/ingest/status/{ingest_id}',
-    response_model=ApiResponse,
-    summary='Get ingest status',
-    description='Check the status of an ingest job',
-)
+@router.get('/ingest/status/{ingest_id}', response_model=ApiResponse, dependencies=[Depends(require_local_api_key)])
 async def get_ingest_status(ingest_id: str) -> ApiResponse:
-    """
-    Get the status of an ingest job.
+    ingest_status = ingest_status_store.get_status(ingest_id)
+    if not ingest_status:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'Ingest ID not found: {ingest_id}')
+    return ApiResponse(success=True, message='OK', data=ingest_status.model_dump())
 
-    **Path Parameters:**
-    - `ingest_id`: ID returned from POST /ingest endpoint
 
-    **Response Example:**
-    ```json
-    {
-      "success": true,
-      "message": "OK",
-      "data": {
-        "ingest_id": "ingest_550e8400-e29b-41d4",
-        "status": "done",
-        "message": "Ingested 5 documents, 1240 chunks",
-        "created_at": "2024-01-15T10:00:00Z",
-        "completed_at": "2024-01-15T10:05:00Z"
-      }
-    }
-    ```
-
-    **Status Values:**
-    - `pending`: Job created, waiting to start
-    - `processing`: Actively ingesting documents
-    - `done`: Ingest completed successfully
-    - `failed`: Ingest failed with error
-    """
-    try:
-        ingest_status = ingest_status_store.get_status(ingest_id)
-
-        if not ingest_status:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f'Ingest ID not found: {ingest_id}',
-            )
-
-        return ApiResponse(
-            success=True,
-            message='OK',
-            data=ingest_status.model_dump(),
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Error retrieving ingest status: {str(e)}',
-        )
+@router.get('/ingest/history', response_model=ApiResponse, dependencies=[Depends(require_local_api_key)])
+async def list_ingest_history(limit: int = Query(default=20, ge=1, le=200)) -> ApiResponse:
+    items = ingest_status_store.list_ingests(limit=limit)
+    return ApiResponse(success=True, message='OK', data={'items': [item.model_dump() for item in items]})

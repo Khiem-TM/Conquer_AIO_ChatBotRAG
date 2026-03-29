@@ -1,5 +1,10 @@
 import { useState, useCallback, useEffect } from "react";
-import { apiClient, ChatHistoryEntry } from "../services/api";
+import {
+  apiClient,
+  ChatHistoryEntry,
+  normalizeApiError,
+  type StreamEvent,
+} from "../services/api";
 
 export function useChat() {
   const [messages, setMessages] = useState<ChatHistoryEntry[]>([]);
@@ -21,7 +26,12 @@ export function useChat() {
   }, []);
 
   const sendMessage = useCallback(
-    async (question: string, topK: number = 5) => {
+    async (
+      question: string,
+      topK: number = 5,
+      onToken?: (token: string) => void,
+      onEvent?: (event: StreamEvent) => void
+    ) => {
       if (!question.trim()) {
         setError("Question cannot be empty");
         return null;
@@ -31,9 +41,11 @@ export function useChat() {
       setError(null);
 
       try {
-        const response = await apiClient.chat(question, topK);
+        const response = await apiClient.chatStream(question, topK, true, {
+          onToken,
+          onEvent,
+        });
 
-        // Create history entry from response
         const entry: ChatHistoryEntry = {
           id: `msg_${Date.now()}`,
           question,
@@ -41,27 +53,29 @@ export function useChat() {
           timestamp: new Date().toISOString(),
         };
 
-        setMessages([entry, ...messages]);
+        setMessages((prev) => [entry, ...prev]);
         return response;
-      } catch (err: any) {
-        const message =
-          err.response?.data?.error?.message || err.message || "Chat failed";
-        setError(message);
-        console.error("Chat error:", err);
+      } catch (err: unknown) {
+        const normalized = normalizeApiError(err);
+        setError(normalized.message);
+        console.error("Chat error:", normalized);
         return null;
       } finally {
         setLoading(false);
       }
     },
-    [messages]
+    []
   );
 
   const clearHistory = useCallback(async () => {
     try {
       await apiClient.clearHistory();
       setMessages([]);
-    } catch (err) {
-      console.error("Failed to clear history:", err);
+      setError(null);
+    } catch (err: unknown) {
+      const normalized = normalizeApiError(err);
+      setError(`Không thể xóa lịch sử: ${normalized.message}`);
+      console.error("Failed to clear history:", normalized);
     }
   }, []);
 
@@ -89,10 +103,9 @@ export function useIngest() {
       const result = await apiClient.startIngest();
       setIngestId(result?.ingest_id || null);
       return result;
-    } catch (err: any) {
-      const message =
-        err.response?.data?.error?.message || err.message || "Ingest failed";
-      setError(message);
+    } catch (err: unknown) {
+      const normalized = normalizeApiError(err);
+      setError(normalized.message);
       return null;
     } finally {
       setLoading(false);

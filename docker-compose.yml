@@ -1,0 +1,105 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rag-chatbot-ollama
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - rag-network
+
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: rag-chatbot-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: llama3.1:8b
+      EMBEDDING_MODEL: nomic-embed-text
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      echo 'Pulling models (this may take a while on first run)...' &&
+      for i in 1 2 3 4 5; do
+        ollama pull "$$OLLAMA_MODEL" && break ||
+        (echo "Retry $$i for $$OLLAMA_MODEL..." && sleep 10);
+      done &&
+      for i in 1 2 3 4 5; do
+        ollama pull "$$EMBEDDING_MODEL" && break ||
+        (echo "Retry $$i for $$EMBEDDING_MODEL..." && sleep 10);
+      done &&
+      echo 'Models ready.'
+    restart: "no"
+    networks:
+      - rag-network
+
+  api:
+    build:
+      context: ./Project
+      dockerfile: docker/Dockerfile
+    container_name: rag-chatbot-api
+    env_file:
+      - ./Project/.env
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000","http://localhost","http://127.0.0.1"]'
+      INDEX_STORE_BACKEND: sqlite
+      OLLAMA_MODEL: llama3.1:8b
+      OLLAMA_RERANKER_MODEL: llama3.1:8b
+      RETRIEVAL_ENABLE_LLM_RERANKER: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./Project/data_input:/app/data_input
+      - ./Project/data:/app/data
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - rag-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # VITE_API_URL is only used during `npm run dev`.
+        # In production the nginx proxy handles /api routing — no hardcoded URL needed.
+        VITE_API_URL: http://localhost:8000
+    container_name: rag-chatbot-frontend
+    ports:
+      - "3000:3000"
+    # Frontend only needs api to exist, not be fully healthy.
+    # nginx will proxy requests; if api isn't ready yet the user sees a loading state.
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - rag-network
+
+networks:
+  rag-network:
+    driver: bridge
+
+volumes:
+  ollama_data:

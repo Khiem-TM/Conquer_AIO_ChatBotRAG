@@ -1,4 +1,5 @@
 import { FC, useRef, useEffect, useState } from "react";
+import type { ChangeEvent } from "react";
 import { ChatResponse } from "../services/api";
 
 export interface DisplayMessage {
@@ -44,18 +45,33 @@ export const ChatMessage: FC<DisplayMessage> = ({ role, content, isStreaming, ci
 
           {citations && citations.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/5">
-              {citations.map((cite, idx) => (
-                <div key={idx} className="group/cite relative">
-                  <span className="px-2 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded text-[11px] text-indigo-300 cursor-help transition-colors">
-                    [{idx + 1}] {cite.source_id.split('/').pop()}
-                  </span>
-                  <div className="invisible group-hover/cite:visible absolute bottom-full left-0 mb-2 w-64 p-3 bg-[#2f2f2f] border border-white/10 rounded-xl shadow-2xl z-50 text-xs text-gray-300 backdrop-blur-xl">
-                    <p className="font-semibold mb-1 text-indigo-300">Source: {cite.source_id}</p>
-                    <p className="line-clamp-4 italic">"{cite.text}"</p>
-                    <div className="mt-1 text-[10px] opacity-50">Score: {cite.score != null ? (cite.score * 100).toFixed(1) : "N/A"}%</div>
+              {citations.map((cite, idx) => {
+                const sourceLabel =
+                  cite.source_name ?? cite.source_id?.split("/").pop() ?? "Nguồn";
+                return (
+                  <div key={`${cite.source_id}-${cite.chunk_id ?? idx}`} className="group/cite relative">
+                    <span className="px-2 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded text-[11px] text-indigo-300 cursor-help transition-colors">
+                      [{idx + 1}] {sourceLabel}
+                    </span>
+                    <div className="invisible group-hover/cite:visible absolute bottom-full left-0 mb-2 w-64 p-3 bg-[#2f2f2f] border border-white/10 rounded-xl shadow-2xl z-50 text-xs text-gray-300 backdrop-blur-xl">
+                      <p className="font-semibold mb-1 text-indigo-300">Source: {cite.source_name ?? cite.source_id}</p>
+                      <p className="line-clamp-4 italic">
+                        "{cite.snippet ?? "Không có trích đoạn"}"
+                      </p>
+                      {(cite.section || cite.page != null) && (
+                        <div className="mt-1 text-[10px] opacity-70">
+                          {cite.section ? `Mục: ${cite.section}` : ""}
+                          {cite.section && cite.page != null ? " • " : ""}
+                          {cite.page != null ? `Trang: ${cite.page}` : ""}
+                        </div>
+                      )}
+                      <div className="mt-1 text-[10px] opacity-50">
+                        Score: {cite.score != null ? (cite.score * 100).toFixed(1) : "N/A"}%
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -64,36 +80,26 @@ export const ChatMessage: FC<DisplayMessage> = ({ role, content, isStreaming, ci
   );
 };
 
-export const WelcomeScreen: FC<{ onSubmit: (text: string) => void; loading: boolean }> = ({ onSubmit, loading }) => {
-  const suggestions = [
-    "Tôi cần hỗ trợ về tài liệu này",
-    "Tóm tắt các điểm chính",
-    "Làm thế nào để bắt đầu?",
-    "Thông tin về chatbot RAG"
-  ];
-
+export const WelcomeScreen: FC<{
+  onStartChat: () => void;
+  loading: boolean;
+}> = ({ onStartChat, loading }) => {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
+    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-2xl mb-8 ring-4 ring-white/5">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       </div>
-      <h2 className="text-3xl font-bold text-white mb-3 tracking-tight">Chào mừng bạn trở lại</h2>
-      <p className="text-[#8e8ea0] max-w-md mb-10 leading-relaxed font-medium">
-        Tôi có thể giúp gì cho bạn hôm nay? Hãy chọn một gợi ý bên dưới hoặc nhập câu hỏi mới.
+      <h2 className="text-3xl font-bold text-white mb-3 tracking-tight">Trợ lý tài liệu local</h2>
+      <p className="text-[#8e8ea0] max-w-md mb-8 leading-relaxed font-medium">
+        Tải tài liệu lên, ingest, rồi bắt đầu hỏi đáp ngay trong một đoạn chat liên tục.
       </p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl w-full">
-        {suggestions.map((s, i) => (
-          <button
-            key={i}
-            onClick={() => onSubmit(s)}
-            disabled={loading}
-            className="p-4 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 rounded-xl text-left text-sm text-[#ececf1] transition-all hover:scale-[1.02] hover:shadow-lg group"
-          >
-            {s}
-            <svg className="inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </button>
-        ))}
-      </div>
+      <button
+        onClick={onStartChat}
+        disabled={loading}
+        className="px-5 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
+      >
+        Bắt đầu đoạn chat
+      </button>
     </div>
   );
 };
@@ -131,9 +137,19 @@ export interface InputAreaProps {
   onAttachFile?: (files: FileList) => void;
   loading: boolean;
   uploadStatus?: "idle" | "uploading" | "done" | "error";
+  uploadError?: string | null;
 }
 
-export const InputArea: FC<InputAreaProps> = ({ onSubmit, onAttachFile, loading, uploadStatus }) => {
+const ALLOWED_EXTENSIONS = ["pdf", "txt", "docx", "doc", "md"];
+const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
+
+export const InputArea: FC<InputAreaProps> = ({
+  onSubmit,
+  onAttachFile,
+  loading,
+  uploadStatus,
+  uploadError,
+}) => {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -153,31 +169,86 @@ export const InputArea: FC<InputAreaProps> = ({ onSubmit, onAttachFile, loading,
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      onAttachFile?.(e.target.files);
-      e.target.value = "";
+  const [localUploadError, setLocalUploadError] = useState<string | null>(null);
+
+  const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files;
+    if (!selected || selected.length === 0) return;
+
+    const invalidReasons: string[] = [];
+    const validFiles = Array.from(selected).filter((file) => {
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
+        invalidReasons.push(`${file.name}: định dạng không hỗ trợ`);
+        return false;
+      }
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        invalidReasons.push(`${file.name}: vượt quá 15MB`);
+        return false;
+      }
+      return true;
+    });
+
+    if (invalidReasons.length > 0) {
+      setLocalUploadError(invalidReasons.join(" | "));
+    } else {
+      setLocalUploadError(null);
+    }
+
+    if (validFiles.length > 0 && onAttachFile) {
+      const dt = new DataTransfer();
+      validFiles.forEach((file) => dt.items.add(file));
+      onAttachFile(dt.files);
+    }
+
+    e.target.value = "";
   };
 
   return (
     <div className="p-4 border-t border-white/5 bg-[#212121]">
       <div className="max-w-3xl mx-auto">
         {/* Upload status indicator */}
-        {uploadStatus && uploadStatus !== "idle" && (
-          <div className={`mb-2 px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 ${
-            uploadStatus === "uploading" ? "bg-blue-500/10 text-blue-400" :
-            uploadStatus === "done" ? "bg-green-500/10 text-green-400" :
-            "bg-red-500/10 text-red-400"
-          }`}>
+        {(uploadStatus && uploadStatus !== "idle") || uploadError || localUploadError ? (
+          <div
+            className={`mb-2 px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 ${
+              uploadStatus === "uploading"
+                ? "bg-blue-500/10 text-blue-400"
+                : uploadStatus === "done"
+                ? "bg-green-500/10 text-green-400"
+                : "bg-red-500/10 text-red-400"
+            }`}
+          >
             {uploadStatus === "uploading" && (
-              <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" opacity=".3"/><path d="M21 12a9 9 0 0 1-9 9"/></svg>
+              <svg
+                className="animate-spin"
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" opacity=".3" />
+                <path d="M21 12a9 9 0 0 1-9 9" />
+              </svg>
             )}
-            {uploadStatus === "uploading" ? "Đang tải lên tài liệu..." :
-             uploadStatus === "done" ? "Tài liệu đã được tải lên thành công!" :
-             "Tải lên thất bại. Thử lại."}
+            {uploadError || localUploadError
+              ? uploadError || localUploadError
+              : uploadStatus === "uploading"
+              ? "Đang tải lên tài liệu..."
+              : uploadStatus === "done"
+              ? "Tài liệu đã tải lên. Hệ thống sẽ ingest để dùng cho chat."
+              : "Tải lên thất bại. Thử lại."}
           </div>
-        )}
+        ) : null}
 
         <div className="relative">
           {/* Hidden file input */}
@@ -206,7 +277,7 @@ export const InputArea: FC<InputAreaProps> = ({ onSubmit, onAttachFile, loading,
           <textarea
             ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Hỏi về tài liệu của bạn..."
             disabled={loading}

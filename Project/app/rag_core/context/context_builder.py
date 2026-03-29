@@ -12,6 +12,8 @@ class RetrievedChunk:
     chunk_id: str | None
     text: str
     score: float
+    metadata: dict[str, str | int] | None = None
+    features: dict[str, float] | None = None
 
 
 class ContextBuilder:
@@ -30,6 +32,8 @@ class ContextBuilder:
                 chunk_id=item.chunk_id,
                 text=item.text,
                 score=round(item.final_score, 6),
+                metadata=dict(item.metadata or {}),
+                features=dict(item.features or {}),
             )
             for item in output.chunks
         ]

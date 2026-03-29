@@ -24,8 +24,9 @@ class OllamaClient:
                 max_connections=max(1, settings.ollama_http_max_connections),
                 max_keepalive_connections=max(1, settings.ollama_http_max_keepalive_connections),
             )
-            read_timeout = max(30, min(180, settings.request_timeout_seconds))
-            timeout = httpx.Timeout(connect=5.0, read=read_timeout, write=60.0, pool=30.0)
+            read_timeout = max(30, settings.request_timeout_seconds)
+            write_timeout = max(30, settings.request_timeout_seconds)
+            timeout = httpx.Timeout(connect=10.0, read=read_timeout, write=write_timeout, pool=30.0)
             self._client = httpx.AsyncClient(timeout=timeout, limits=limits)
 
     async def close_pool(self) -> None:
@@ -61,8 +62,10 @@ class OllamaClient:
 
         async with self._semaphore:
             assert self._client is not None
-            call_timeout = max(15, min(60, settings.request_timeout_seconds))
-            total_timeout = max(call_timeout, min(120, settings.request_timeout_seconds))
+            total_timeout = max(180, settings.request_timeout_seconds)
+            # Non-stream generate can take long before returning full text.
+            # Use full request budget per model to avoid premature timeout.
+            per_model_timeout = total_timeout
             deadline = asyncio.get_running_loop().time() + total_timeout
 
             models = await self._model_candidates()
@@ -72,11 +75,21 @@ class OllamaClient:
                     remaining = deadline - asyncio.get_running_loop().time()
                     if remaining <= 0:
                         logger.warning('Ollama generation deadline exceeded before model=%s', model)
-                        return self._fallback(prompt)
+                        raise RuntimeError('Ollama generation exceeded timeout budget')
                     try:
+                        generate_timeout = httpx.Timeout(
+                            connect=10.0,
+                            read=None,  # rely on asyncio.wait_for budget below
+                            write=60.0,
+                            pool=30.0,
+                        )
                         response = await asyncio.wait_for(
-                            self._client.post(f'{base_url}/api/generate', json=payload),
-                            timeout=min(call_timeout, remaining),
+                            self._client.post(
+                                f'{base_url}/api/generate',
+                                json=payload,
+                                timeout=generate_timeout,
+                            ),
+                            timeout=min(per_model_timeout, remaining),
                         )
                         response.raise_for_status()
                         data = response.json()
@@ -98,7 +111,19 @@ class OllamaClient:
                 payload = self._payload(prompt, stream=True, model=model)
                 for base_url in self._candidate_urls(settings.ollama_base_url):
                     try:
-                        async with self._client.stream('POST', f'{base_url}/api/generate', json=payload) as response:
+                        stream_read_timeout = settings.ollama_stream_read_timeout_seconds
+                        stream_timeout = httpx.Timeout(
+                            connect=10.0,
+                            read=None if stream_read_timeout <= 0 else float(stream_read_timeout),
+                            write=60.0,
+                            pool=30.0,
+                        )
+                        async with self._client.stream(
+                            'POST',
+                            f'{base_url}/api/generate',
+                            json=payload,
+                            timeout=stream_timeout,
+                        ) as response:
                             response.raise_for_status()
                             async for line in response.aiter_lines():
                                 if not line:
@@ -115,11 +140,14 @@ class OllamaClient:
                     except Exception as exc:
                         logger.warning('Ollama stream failed at %s model=%s: %r', base_url, model, exc)
 
-        yield self._fallback(prompt)
+        for token in self._fallback(prompt).split():
+            yield token + ' '
 
     async def _model_candidates(self) -> list[str]:
         assert self._client is not None
-        preferred = [settings.ollama_model, 'llama3.1:8b', 'llama3.2:3b']
+        # Keep candidate list strict and deterministic to avoid slow/unavailable
+        # fallback models causing long timeouts in production.
+        preferred = [settings.ollama_model]
         ordered = []
         seen = set()
         for model in preferred:
@@ -147,8 +175,9 @@ class OllamaClient:
             'model': model,
             'prompt': prompt,
             'stream': stream,
+            'keep_alive': settings.ollama_keep_alive,
             'options': {
-                'num_predict': 256,
+                'num_predict': 384,
                 'temperature': 0.2,
             },
         }
