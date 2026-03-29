@@ -36,11 +36,8 @@ The ingestion workflow can be summarized into three main stages:
 If ingestion is unstable (bad parsing, inconsistent metadata, poor chunking), retrieval quality drops and the LLM is more likely to hallucinate. A stable Part 1 makes Parts 2–4 measurably better and makes Part 5 (end‑to‑end demo) much easier.
 
 
-## 2. Part 2 – Embedding + Indexing Owner: Building a Searchable Index
+## 2. Embedding + Indexing Owner: Building a Searchable Index
 
-![Embedding + Indexing overview](images/part2_embedding_indexing.png)
-
-In the RAG chatbot architecture, the **Embedding + Indexing** lane is the bridge between ingested data and the Retrieval layer. If Part 1 focuses on “getting documents into the system and normalizing them”, Part 2 is responsible for turning those text chunks into **searchable vectors** and storing them in a **consistent index** ready for retrieval.
 
 
 

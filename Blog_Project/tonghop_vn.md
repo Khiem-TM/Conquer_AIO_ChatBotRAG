@@ -59,7 +59,7 @@ Sau khi hoàn tất quá trình lưu trữ, hệ thống sẽ thực hiện các
 
 
 
-## 2. Phần 2 - Embedding + Indexing Owner: Xây dựng chỉ mục để tìm đúng đoạn văn
+## 2. Embedding + Indexing Owner: Xây dựng chỉ mục để tìm đúng đoạn văn
 
 
 Trong kiến trúc của hệ thống Chatbot RAG, **Embedding + Indexing** là chiếc cầu nối giữa dữ liệu đã ingest và tầng Retrieval. Nếu ở phần 1 lo “đưa tài liệu vào hệ thống và chuẩn hóa”, thì ở phần 2 chịu trách nhiệm biến những đoạn văn bản đó thành **vector có thể tìm kiếm được** và lưu chúng vào một **chỉ mục (index)** nhất quán, sẵn sàng cho việc truy xuất.
